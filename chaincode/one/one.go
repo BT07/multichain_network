@@ -83,6 +83,10 @@ func (t *SimpleChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Respons
 		return t.queryAllCert(APIstub, args)
 	} else if function == "login" {
 		return t.login(APIstub, args)
+	} else if function == "uniCredentials" {
+		return t.uniCredentials(APIstub, args)
+	} else if function == "creatorCredentials" {
+		return t.creatorCredentials(APIstub, args)
 	}
 	return shim.Error("Received unknown function invocation")
 
