@@ -7,11 +7,20 @@ export ORDERER_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/orde
 #Start the network
 docker-compose -f docker-compose.yml up -d
 
+export FABRIC_START_TIMEOUT=10
+#echo ${FABRIC_START_TIMEOUT}
+sleep ${FABRIC_START_TIMEOUT}
+
 #The channel creation is done by using the transaction tx that’s created in channel-artifacts folder.
 
 docker exec cli peer channel create -o orderer.example.com:7050 -c $CHANNEL_ONE_NAME -f /opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts/${CHANNEL_ONE_NAME}.tx --tls --cafile $ORDERER_CA
 
-#Join the Channel One as Org2 Peer
+#Join the Channel One as Org1 Peer
+docker exec cli peer channel join -b ${CHANNEL_ONE_NAME}.block --tls --cafile $ORDERER_CA
+
+export FABRIC_START_TIMEOUT=10
+#echo ${FABRIC_START_TIMEOUT}
+sleep ${FABRIC_START_TIMEOUT}
 
 #Similarly we’ll change the environment variables to make the cli act as Org2 Peers and join the channel.
 
@@ -19,7 +28,11 @@ docker exec -e "CORE_PEER_LOCALMSPID=Org2MSP" -e "CORE_PEER_TLS_ROOTCERT_FILE=/o
 
 #Join the Channel One as Org3 Peer
 
-#Similarly we’ll change the environment variables to make the cli act as Org2 Peers and join the channel.
+export FABRIC_START_TIMEOUT=10
+#echo ${FABRIC_START_TIMEOUT}
+sleep ${FABRIC_START_TIMEOUT}
+
+#Similarly we’ll change the environment variables to make the cli act as Org3 Peers and join the channel.
 
 docker exec -e "CORE_PEER_LOCALMSPID=Org3MSP" -e "CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/ca.crt" -e "CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org3.example.com/users/Admin@org3.example.com/msp" -e "CORE_PEER_ADDRESS=peer0.org3.example.com:7051" cli peer channel join -b ${CHANNEL_ONE_NAME}.block --tls --cafile $ORDERER_CA
 
@@ -32,4 +45,25 @@ docker exec cli peer chaincode install -n $FIRST_CHAINCODE_NAME -p $FIRST_CHAINC
 
 #Instantiate Chaincode (firstchaincode) in Org1 Peer
 
-docker exec cli peer chaincode instantiate -o orderer.example.com:7050 --tls --cafile $ORDERER_CA -C $CHANNEL_ONE_NAME -c '{"Args":[]}' -n $FIRST_CHAINCODE_NAME -v $CHAINCODE_VERSION -P "OR('Org1MSP.member', 'Org2MSP.member')"
+docker exec cli peer chaincode instantiate -o orderer.example.com:7050 --tls --cafile $ORDERER_CA -C $CHANNEL_ONE_NAME -c '{"Args":[]}' -n $FIRST_CHAINCODE_NAME -v $CHAINCODE_VERSION -P "OR('Org1MSP.member', 'Org2MSP.member', 'Org3MSP.member')"
+
+sleep 10
+
+docker exec cli peer chaincode invoke -o orderer.example.com:7050 --tls --cafile $ORDERER_CA -C $CHANNEL_ONE_NAME -c '{"function":"initLedger","Args":[""]}' -n $FIRST_CHAINCODE_NAME
+
+#Install Chaincode (firstchaincode) in Org2 Peer
+docker exec -e "CORE_PEER_LOCALMSPID=Org2MSP" -e "CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" -e "CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp" -e "CORE_PEER_ADDRESS=peer0.org2.example.com:7051" cli peer chaincode install -n $FIRST_CHAINCODE_NAME -p $FIRST_CHAINCODE_SRC -v $CHAINCODE_VERSION
+
+sleep 10
+
+echo "Invoke Chaincode (firstchaincode) in Org2 Peer"
+
+docker exec cli peer chaincode invoke -o orderer.example.com:7050 --tls --cafile $ORDERER_CA -C $CHANNEL_ONE_NAME -c '{"function":"readCert","Args":["201916721"]}' -n $FIRST_CHAINCODE_NAME
+
+#Install Chaincode (firstchaincode) in Org3 Peer
+docker exec -e "CORE_PEER_LOCALMSPID=Org3MSP" -e "CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/ca.crt" -e "CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org3.example.com/users/Admin@org3.example.com/msp" -e "CORE_PEER_ADDRESS=peer0.org3.example.com:7051" cli peer chaincode install -n $FIRST_CHAINCODE_NAME -p $FIRST_CHAINCODE_SRC -v $CHAINCODE_VERSION
+
+sleep 10
+
+docker exec cli peer chaincode invoke -o orderer.example.com:7050 --tls --cafile $ORDERER_CA -C $CHANNEL_ONE_NAME -c '{"function":"readCert","Args":["201916721"]}' -n $FIRST_CHAINCODE_NAME
+
